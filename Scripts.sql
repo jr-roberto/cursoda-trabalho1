@@ -1,56 +1,3 @@
--- SELECT COUNT(*) FROM execucao_financeira;
-
--- SELECT * FROM execucao_financeira LIMIT 1000;
-
--- select distinct dsc_item_elemento from public.execucao_financeira ORDER BY dsc_item_elemento;
-
--- select distinct dsc_item_categoria from public.execucao_financeira;
-
--- -- SHOW COLUMNS FROM execucao_financeira;
-
--- CREATE SCHEMA teste;
-
--- SELECT DISTINCT codigo_orgao, dsc_orgao  FROM execucao_financeira;
-
--- SELECT DISTINCT codigo_orgao,dsc_orgao  FROM execucao_financeira ORDER BY codigo_orgao;
-
--- SELECT DISTINCT codigo_orgao,dsc_orgao  FROM execucao_financeira ORDER BY dsc_orgao;
-
--- SELECT
--- 	dsc_item_categoria,
--- 	count(*)
--- FROM
-
-
-
--- SELECT sigla, dsc_orgao
--- FROM execucao_financeira 
--- WHERE sigla LIKE '%CRS%' order by sigla
--- LIMIT 10;
-
--- SELECT DISTINCT sigla FROM execucao_financeira;
-
--- SELECT DISTINCT sigla, dsc_orgao FROM execucao_financeira ORDER BY sigla;
-
--- SELECT DISTINCT codigo_orgao, sigla FROM execucao_financeira ORDER BY sigla;
-
--- SELECT DISTINCT sigla, codigo_orgao FROM execucao_financeira ORDER BY sigla;
-
-
--- SELECT DISTINCT codigo_orgao FROM execucao_financeira; -- 925
--- SELECT DISTINCT sigla FROM execucao_financeira; -- 928
-
--- SELECT sigla, COUNT(*) as total FROM
--- (SELECT DISTINCT sigla, codigo_orgao FROM execucao_financeira) AS suquery
--- group by sigla;
-
--- SELECT DISTINCT sigla, codigo_orgao FROM execucao_financeira;
-
-
--- SELECT DISTINCT sigla, codigo_orgao FROM execucao_financeira;
-
--- SELECT DISTINCT dsc_orgao FROM execucao_financeira;
-
 SELECT
 	id,
 	num_ano,
@@ -64,3 +11,69 @@ SELECT
 	dth_empenho,
 	dth_pagamento
 FROM execucao_financeira LIMIT 10;
+
+-- GERANDO ODS
+-- INICIA AQUI
+CREATE SCHEMA ods;
+DROP TABLE IF EXISTS ods.base;
+CREATE TABLE ods.base AS
+SELECT
+	id,
+	num_ano,
+	codigo_orgao,
+	sigla,
+	dsc_orgao,
+	dsc_item_elemento,
+	dsc_item_categoria,
+	vlr_empenho,
+	valorpago,
+	dth_empenho,
+	dth_pagamento
+FROM public.execucao_financeira;
+
+-- TRATAMENTO DE DADOS
+
+-- DADOS UNICOS DE CATEGORIA
+SELECT DISTINCT dsc_item_categoria FROM ods.base;
+
+-- CRIANDO UMA TABELA AUXILIAR QUE VAI FAZER UM DE PARA
+CREATE TABLE ods.categoria_de_para (
+	como_esta varchar(100),
+	como_fica varchar(100)
+)
+
+-- POPULANDO TABELA DE PARA NO CAMPO 'como_esta'
+INSERT INTO ods.categoria_de_para (como_esta)
+SELECT DISTINCT dsc_item_categoria FROM ods.base;
+
+-- POPULANDO TABELA DE PARA NO CAMPO 'como_fica' DESPESA DE CAPITAL **VERIFICAR DADOS MANUAL**
+UPDATE ods.categoria_de_para
+SET como_fica = 'DESPESA DE CAPITAL'
+WHERE como_esta IN ('DESPESA DE CAPITAL','DESPESAS DE CAPITAL');
+
+-- POPULANDO TABELA DE PARA NO CAMPO 'como_fica' DESPESA CORRENTE **VERIFICAR DADOS MANUAL**
+UPDATE ods.categoria_de_para
+SET como_fica = 'DESPESA CORRENTE'
+WHERE como_esta IN ('DESPESA CORRENTE','DESPESAS CORRENTES');
+
+
+
+
+-- SELECT BASE TRATADA
+SELECT
+	b.id,
+	b.num_ano,
+	b.codigo_orgao,
+	b.sigla,
+	b.dsc_orgao,
+	b.dsc_item_elemento,
+	ba.como_fica AS categoria, -- CATEGORIA TRATADA
+	b.vlr_empenho,
+	b.valorpago,
+	b.dth_empenho,
+	b.dth_pagamento
+	FROM ods.base AS b
+	LEFT JOIN ods.categoria_de_para AS ba ON ba.como_esta = b.dsc_item_categoria GROUP BY ba.como_fica LIMIT 10;
+	
+
+-- FIM
